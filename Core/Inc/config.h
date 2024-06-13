@@ -16,22 +16,36 @@
 
 // Serial number. Must be lower case.
 #ifndef SERIAL_NUMBER
-  #define SERIAL_NUMBER "rb000006"
+  #define SERIAL_NUMBER "rb000016"
 #endif
+//Enter the number of papers you want to upload in seconds (s)
+#define time_sleep 1800     //seconds (s)
+//Enter the length of the pipe you are using in centimeters (cm), Types in use: 110cm, 90cm, 70cm
+#define tube_length 70    //centimeters (cm)
 
 /** MQTT
  * Global broker: mqtt.agriconnect.vn
  */
-#define MQTT_HOST "tcp://mqtt.agriconnect.vn"           		// MQTT broker
+//If you want to use it for Agriconnet server, please turn on define me
+
+#define MQTT_HOST "tcp://mqtt.agriconnect.vn"         // MQTT broker
 #define MQTT_USER "mqttnode"                          // User - connect to MQTT broker
-#define MQTT_PASS "congamo"                        		// Password - connect to MQTT broker
+#define MQTT_PASS "congamo"
+//If you want to use it for saty server, please turn on define me
+
+//#define MQTT_HOST "tcp://local.saty.ai"           		// MQTT broker
+//#define MQTT_USER "devicetest1"                          // User - connect to MQTT broker
+//#define MQTT_PASS "test1password"  // Password - connect to MQTT broker
+
 #define MQTT_CLIENT_ID  SERIAL_NUMBER
 #define MQTT_PORT 1883
+
 // ADRESS FLASH
 #define SET_CHANGE 1
 #define DATA_INT_WATER 0x08000000+1024*63
 #define DATA_FLOAT_WATER 0x08000000+1024*62
 #define DATA_NEGATIVE_WATER  0x08000000+1024*61
+#define time_Period ((1000000*time_sleep)/60000)-1;
 
 
 

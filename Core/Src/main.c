@@ -64,16 +64,21 @@ char AT_CHECK_ESIM[]= "AT+CGREG?\r\n";
 char AT_SIGNAL_SIM[]="AT+CSQ\r\n";
 char AT_START_MQTT[]= "AT+CMQTTSTART\r\n";
 char AT_ACQUIRE_CLIENT[]="AT+CMQTTACCQ=0,\"%s\",0\r\n";
+//char AT_CONNECT_MQTT[]="AT+CMQTTCONNECT=0,\"%s:%d\",60,1,\"%s\",\"%s\"\r\n";
 char AT_CONNECT_MQTT[]="AT+CMQTTCONNECT=0,\"%s:%d\",60,1,\"%s\",\"%s\"\r\n";
+
 char AT_SET_PUBLISH_TOPIC[]= "AT+CMQTTTOPIC=0,%d\r\n";
 char AT_SET_PUBLISH_PAYLOAD[]="AT+CMQTTPAYLOAD=0,%d\r\n";
 char AT_PUBLISH[]="AT+CMQTTPUB=0,1,60\r\n";
 char AT_SUBCRIBE_TOPIC[]= "%s%d\r\n";
 char AT_SUBCRIBE[]="AT+CMQTTSUB=0\r\n";
 char AT_COMMAND[100];
+char AT_DISCONNECT[]="AT+CMQTTDISC=0,120";
 char BUFFER_TOPPIC_MQTT[100];
 char BUFFER_DATA_PAYLOAD_MQTT[80];
+//char TOPPIC_PAYLOAD_MQTT[]="{\"WaterLevel\":%.1f}\r\n";
 char TOPPIC_PAYLOAD_MQTT[]="{\"WaterLevel\":%.1f,\"airRH\":%.1f,\"Light\":%.1f}\r\n";
+//char TOPPIC_PAYLOAD_MQTT[]="{\"WaterLevel\":%.1f,\"Battery\":%.1f,\"RSSI\":%.1f}\r\n";
 char water[50]="-123";
 
 
@@ -123,11 +128,15 @@ float PercentageBattery=0;
 uint32_t arrayBattery[10];
 uint32_t temp;
 uint8_t times=10;
+//int time_Period=0;
 int Filter_Baterry_Values();
 int MediumBattery();
 
 uint32_t ADC_VAL;
 float Vin=0;
+uint8_t test1=0;
+uint8_t A7677S_DONE=0;
+uint8_t A7670C_DONE=0;
 
 void RunningSendData();
 
@@ -197,7 +206,24 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		{
 			// calculate the Duty Cycle
 			Duty = (float)(HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_2) *100)/ICValue; // Do do rong xung muc cao
-			Distance_water=30-((Duty*50)/10); //don vi CM
+			if(tube_length==110)
+			{
+			  Distance_water=70-((Duty*50)/10);
+			}
+			if(tube_length==90)
+			{
+			  Distance_water=50-((Duty*50)/10);
+			}
+			if(tube_length==75)
+			{
+			  Distance_water=28-((Duty*50)/10);
+			}
+			if(tube_length==70)
+			{
+			  Distance_water=30-((Duty*50)/10);
+			}
+//			else
+//			Distance_water=((Duty*50)/10); //don vi CM
 			//Frequency = (TIMCLOCK / PRESCALER) / ICValue;
 		}
 	}
@@ -209,10 +235,14 @@ int connectSimcomA76xx(){
 
 	while(isConnectSimcomA76xx == 0&&(previousTick  + timeOutConnectA76XX) > HAL_GetTick()){
 		if(strstr((char *)rxBuffer,"PB DONE")){
-			isPBDONE = 1;
-
-
+			A7670C_DONE = 1;
+			isPBDONE=1;
 		}
+//		if(strstr((char *)rxBuffer,"PDN ACT 1")){
+//			A7677S_DONE = 1;
+//			isPBDONE=1;
+//			HAL_Delay(5000);
+//		}
 		if(isPBDONE==1){
 			sendingToSimcomA76xx(ATE0);
 			HAL_Delay(200);
@@ -340,11 +370,12 @@ int main(void)
  // HAL_TIM_Base_Start_IT(&htim6);
 
   HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);
-  turnOnA76XX();
-  sendingToSimcomA76xx(AT_RESET);
+
+  //sendingToSimcomA76xx(AT_RESET);
 
 //  HAL_UART_Receive_IT(&huart1, &rxData,1);
   HAL_UARTEx_ReceiveToIdle_IT(&huart1, (uint8_t *) rxBuffer, 50);
+
 
   intDataWater=Flash_Read_Init(DATA_INT_WATER);
   floatDataWater=Flash_Read_Init(DATA_FLOAT_WATER);
@@ -355,6 +386,8 @@ int main(void)
   else {
 	  SaveDataWater=(float)(intDataWater+(float)floatDataWater*0.1);
   }
+  turnOnA76XX();
+
 
   /* USER CODE END 2 */
 
@@ -368,7 +401,6 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	if(!isConnectSimcomA76xx){
-
 	  isConnectSimcomA76xx = connectSimcomA76xx();
 	}
 	if(!isConnectMQTT){
@@ -571,7 +603,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 59999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 29999;
+  htim6.Init.Period = time_Period;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -677,8 +709,13 @@ int Filter_Baterry_Values(){
 		arrayBattery[i]=HAL_ADC_GetValue(&hadc);
 	}
 	adcValue=MediumBattery();
-	BatteryLevel=((float)(adcValue/4095.00)*3.3)*2;
-	PercentageBattery=((BatteryLevel-2.5)/1.6)*100;
+	// vol max 2.1 vol min 1.25
+	BatteryLevel=((float)(adcValue/4095.00)*3.3);
+	PercentageBattery=(BatteryLevel/0.85)*100;
+	if(PercentageBattery>100)
+	{
+		PercentageBattery=100;
+	}
 	HAL_ADC_Stop(&hadc);
 
 	return PercentageBattery ;
@@ -707,13 +744,20 @@ int MediumBattery(){
 
 void turnOnA76XX()
 {
-  HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_RESET);
-  HAL_Delay(1000);
-  HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_SET);
-  //Start sensor
-  HAL_GPIO_WritePin(OPEN_SENSOR_GPIO_Port, OPEN_SENSOR_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_RESET);
+	HAL_Delay(3000);
+	HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_SET);
+	HAL_Delay(4000);
+	HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_RESET);
+	HAL_Delay(300);
+	HAL_GPIO_WritePin(ENABLE_A7672C_GPIO_Port, ENABLE_A7672C_Pin, GPIO_PIN_SET);
+	HAL_Delay(3000);
+	//Start sensor
+	HAL_GPIO_WritePin(OPEN_SENSOR_GPIO_Port, OPEN_SENSOR_Pin, GPIO_PIN_SET);
 }
 int connectMQTT(void){
+
+
 
 	sendingToSimcomA76xx(ATE0);
 	HAL_Delay(200);
@@ -738,24 +782,24 @@ int connectMQTT(void){
 	//HAL_GPIO_WritePin(OPEN_SENSOR_GPIO_Port, OPEN_SENSOR_Pin, GPIO_PIN_RESET);
 
 	sprintf(BUFFER_TOPPIC_MQTT,"%s/sn/%s",FARM,MQTT_CLIENT_ID);
-
 	sprintf(AT_COMMAND,AT_SET_PUBLISH_TOPIC,(int)strlen(BUFFER_TOPPIC_MQTT));
 	sendingToSimcomA76xx(AT_COMMAND);
-	HAL_Delay(200);
+	HAL_Delay(500);
 	sendingToSimcomA76xx(BUFFER_TOPPIC_MQTT);
-
-	HAL_Delay(200);
+	HAL_Delay(500);
 	Filter_Baterry_Values();
 	sprintf(BUFFER_DATA_PAYLOAD_MQTT,TOPPIC_PAYLOAD_MQTT,Distance_water,PercentageBattery,SignalStrength);
-	HAL_Delay(200);
+//	sprintf(BUFFER_DATA_PAYLOAD_MQTT,TOPPIC_PAYLOAD_MQTT,Distance_water);
+	HAL_Delay(500);
 	sprintf(AT_COMMAND,AT_SET_PUBLISH_PAYLOAD,(int)strlen(BUFFER_DATA_PAYLOAD_MQTT));
-
 	sendingToSimcomA76xx(AT_COMMAND);
-	HAL_Delay(200);
+	HAL_Delay(500);
 	sendingToSimcomA76xx(BUFFER_DATA_PAYLOAD_MQTT);
-	HAL_Delay(200);
+	HAL_Delay(500);
 	sendingToSimcomA76xx(AT_PUBLISH);
-	HAL_Delay(200);
+	HAL_Delay(500);
+//	sendingToSimcomA76xx(AT_DISCONNECT);
+//	HAL_Delay(500);
 //	if(strstr((char *)rxBuffer,"CMQTTPUB")){
 //		isConnectMQTT=1;
 //	}
@@ -827,23 +871,6 @@ void Filter_Value(void){
 		cnt_1=1;
 	}
 	else cnt_1=0;
-
-//	if(Distance_water<0){
-//		Negative=2;
-//		isDistance=Distance_water*-1;
-//		Flash_Erase(DATA_NEGATIVE_WATER);
-//		Flash_Write_Init(DATA_NEGATIVE_WATER,(uint32_t)Negative);
-//	}
-//	else{
-//		Negative=1;
-//		isDistance=Distance_water;
-//		Flash_Erase(DATA_NEGATIVE_WATER);
-//		Flash_Write_Init(DATA_NEGATIVE_WATER,(uint32_t)Negative);
-//	}
-
-//	intDataWater=(int)isDistance;
-//	floatDataWater=((int)(isDistance*10)%10);
-
 	if(Distance_water>0&&absChange>0.5){
 		Negative=1;
 		isDistance=Distance_water;
