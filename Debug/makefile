@@ -60,8 +60,8 @@ all: main-build
 main-build: Agriconnect_Rbee.elf secondary-outputs
 
 # Tool invocations
-Agriconnect_Rbee.elf Agriconnect_Rbee.map: $(OBJS) $(USER_OBJS) C:\Users\ADMIN\STM32CubeIDE\workspace_1.13.1\Agriconnect\ STM32\Agriconnect_Rbee\Agriconnect_Rbee\STM32L071RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Agriconnect_Rbee.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\ADMIN\STM32CubeIDE\workspace_1.13.1\Agriconnect STM32\Agriconnect_Rbee\Agriconnect_Rbee\STM32L071RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Agriconnect_Rbee.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Agriconnect_Rbee.elf Agriconnect_Rbee.map: $(OBJS) $(USER_OBJS) /home/thuanphat7/Downloads/Telegram\ Desktop/Agriconnect_Rbeev_Uart_0.2.3/Agriconnect_Rbeev_0.2.2/Agriconnect_Rbee_WT53R/Agriconnect_Rbee/STM32L071RBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Agriconnect_Rbee.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"/home/thuanphat7/Downloads/Telegram Desktop/Agriconnect_Rbeev_Uart_0.2.3/Agriconnect_Rbeev_0.2.2/Agriconnect_Rbee_WT53R/Agriconnect_Rbee/STM32L071RBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Agriconnect_Rbee.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
