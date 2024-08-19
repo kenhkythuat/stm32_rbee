@@ -71,10 +71,10 @@ char AT_SET_PUBLISH_PAYLOAD[] = "AT+CMQTTPAYLOAD=0,%d\r\n";
 char AT_PUBLISH[] = "AT+CMQTTPUB=0,1,60\r\n";
 char AT_SUBCRIBE_TOPIC[] = "%s%d\r\n";
 char AT_SUBCRIBE[] = "AT+CMQTTSUB=0\r\n";
-char AT_COMMAND[100];
+char AT_COMMAND[200];
 char AT_DISCONNECT[] = "AT+CMQTTDISC=0,120";
-char BUFFER_TOPPIC_MQTT[100];
-char BUFFER_DATA_PAYLOAD_MQTT[80];
+char BUFFER_TOPPIC_MQTT[200];
+char BUFFER_DATA_PAYLOAD_MQTT[100];
 //char TOPPIC_PAYLOAD_MQTT[]="{\"WaterLevel\":%.1f}\r\n";
 char TOPPIC_PAYLOAD_MQTT[] =
 		"{\"WaterLevel\":%.1f,\"_battery_level\":%.1f,\"_gsm_signal_strength\":%d}\r\n";
@@ -125,7 +125,7 @@ float SignalStrength = 0;
 uint32_t adcValue = 0;
 float BatteryLevel = 0;
 float PercentageBattery = 0;
-uint32_t arrayBattery[10];
+uint32_t arrayBattery[50];
 uint32_t temp;
 uint8_t times = 10;
 //int time_Period=0;
@@ -142,9 +142,10 @@ char rx_VL53L1[8];
 int distance;
 unsigned char data_vl53l1[3] = { 0xA5, 0x15, 0xBA };
 unsigned char save_mode[3] = { 0xA5, 0x25, 0xCA };
-uint32_t medium_distance[20];
+uint32_t medium_distance[30];
 uint32_t temp_distance;
 float water_level;
+int test123=0;
 
 #if wt53r_ttl
 //unsigned char data_w53r_ttl[8] = { 0x50, 0x06, 0x00, 0x03, 0x00, 0x03, 0x34, 0x4A};
@@ -236,30 +237,24 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 }
 
 int connectSimcomA76xx() {
-	HAL_TIM_Base_Stop_IT(&htim6);
+	//HAL_TIM_Base_Stop_IT(&htim6);
 	previousTick = HAL_GetTick();
 
 	while (isConnectSimcomA76xx == 0
 			&& (previousTick + timeOutConnectA76XX) > HAL_GetTick()) {
 		if (strstr((char*) rxBuffer, "PB DONE")) {
-			A7670C_DONE = 1;
 			isPBDONE = 1;
 		}
 //		if(strstr((char *)rxBuffer,"PDN ACT 1")){
 //			A7677S_DONE = 1;
 //			isPBDONE=1;
-//			HAL_Delay(5000);
+//			HAL_Delay(7000);
 //		}
 		if (isPBDONE == 1) {
 			sendingToSimcomA76xx(ATE0);
 			HAL_Delay(200);
-			//memset(rxBuffer,'0',50);
 			sendingToSimcomA76xx(AT_SIGNAL_SIM);
-			HAL_Delay(1000);
-//			uint8_t SignalStrength1;
-//			SignalStrength = (rxBuffer[8] - 48) * 10 + (rxBuffer[9] - 48)
-//					+ (rxBuffer[11] - 48) * 0.1 + (rxBuffer[12] - 48) * 0.01;
-
+			HAL_Delay(200);
 			SignalStrength = (rxBuffer[8] - 48) * 10 + (rxBuffer[9] - 48);
 			if(SignalStrength>=31)
 			{
@@ -267,6 +262,7 @@ int connectSimcomA76xx() {
 			}else rssi = (SignalStrength * 2 - 113);
 			isConnectSimcomA76xx = 1;
 			HAL_Delay(1000);
+			return isConnectSimcomA76xx;
 		}
 	}
 	if (isConnectSimcomA76xx == 0) {
@@ -295,14 +291,12 @@ int connectSimcomA76xx() {
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
 	if (huart->Instance == USART1) {
-
 		if (strstr((char*) rxBuffer, "ERROR")) {
 			NVIC_SystemReset();
 		}
 		if (strstr((char*) rxBuffer, "unknown")) {
 			NVIC_SystemReset();
 		}
-
 		HAL_UARTEx_ReceiveToIdle_IT(huart, (uint8_t*) rxBuffer, 50);
 	}
 	if (huart->Instance == USART2) {
@@ -390,7 +384,6 @@ int main(void)
 	} else {
 		SaveDataWater = (float) (intDataWater + (float) floatDataWater * 0.1);
 	}
-	HAL_GPIO_WritePin(OPEN_SENSOR_GPIO_Port, OPEN_SENSOR_Pin, GPIO_PIN_SET);
 	turnOnA76XX();
 	writte_mode_return_rate(save_mode_0_2hz);
 
@@ -792,7 +785,7 @@ void turnOnA76XX() {
 }
 int get_data_sensor(int times)
 {
-	for (int i = times; i < times; i++) {
+	for (int i = 0; i < times; i++) {
 		//read_vl53l1(data_vl53l1);
 		HAL_Delay(200);
 		medium_distance[i] = Distance_water;
@@ -809,7 +802,7 @@ int get_data_sensor(int times)
 			}
 		}
 	}
-	return medium_distance[(times/2)];
+	return medium_distance[times/2];
 }
 int abnormal_sensor_data(int difference)
 {
@@ -823,6 +816,7 @@ int abnormal_sensor_data(int difference)
 int connectMQTT(void) {
 
 #if wt53r_ttl
+	//test123=get_data_sensor(30);
 	water_level = (48.5-(get_data_sensor(30) * 0.1));
 #endif
 	big_change=abnormal_sensor_data(3);
@@ -832,6 +826,7 @@ int connectMQTT(void) {
 		water_level = (48.5-(get_data_sensor(30) * 0.1));
 	}
 	Filter_Value();
+	HAL_GPIO_WritePin(OPEN_SENSOR_GPIO_Port, OPEN_SENSOR_Pin, GPIO_PIN_RESET);
 	sendingToSimcomA76xx(ATE0);
 	HAL_Delay(200);
 	sendingToSimcomA76xx(AT_START_MQTT);
@@ -842,7 +837,7 @@ int connectMQTT(void) {
 	sprintf(AT_COMMAND, AT_CONNECT_MQTT, MQTT_HOST, MQTT_PORT, MQTT_USER,
 	MQTT_PASS);
 	sendingToSimcomA76xx(AT_COMMAND);
-	HAL_Delay(500);
+	HAL_Delay(1000);
 	sprintf(BUFFER_TOPPIC_MQTT, "%s/sn/%s", FARM, MQTT_CLIENT_ID);
 	sprintf(AT_COMMAND, AT_SET_PUBLISH_TOPIC, (int) strlen(BUFFER_TOPPIC_MQTT));
 	sendingToSimcomA76xx(AT_COMMAND);
@@ -863,7 +858,7 @@ int connectMQTT(void) {
 	sendingToSimcomA76xx(AT_PUBLISH);
 	HAL_Delay(500);
 	isConnectMQTT = 1;
-	return isConnectMQTT;
+	return 1;
 }
 int Sleep_Stm32_A7672S() {
 	//Sleep Simcom A7672S
